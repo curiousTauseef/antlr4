@@ -8,6 +8,9 @@ package org.antlr.v4.misc;
 
 import org.antlr.v4.tool.ast.GrammarAST;
 
+import java.io.File;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -130,4 +133,12 @@ public class Utils {
 		}
 	}
 
+	public static URL urlFromFile(File f) {
+		try {
+			return f.toURI().toURL();
+		} catch (MalformedURLException e) {
+			// File#toURI().toURL() should [usually] never throw MalformedURLException
+			throw (InternalError)new InternalError().initCause(e);
+		}
+	}
 }

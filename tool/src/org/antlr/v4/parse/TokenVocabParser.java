@@ -9,16 +9,18 @@ package org.antlr.v4.parse;
 import org.antlr.runtime.Token;
 import org.antlr.v4.Tool;
 import org.antlr.v4.codegen.CodeGenerator;
+import org.antlr.v4.misc.Utils;
 import org.antlr.v4.tool.ErrorType;
 import org.antlr.v4.tool.Grammar;
 import org.antlr.v4.tool.ast.GrammarAST;
 
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.net.URL;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.regex.Matcher;
@@ -36,20 +38,21 @@ public class TokenVocabParser {
 	public Map<String,Integer> load() {
 		Map<String,Integer> tokens = new LinkedHashMap<String,Integer>();
 		int maxTokenType = -1;
-		File fullFile = getImportedVocabFile();
-		FileInputStream fis = null;
+		URL fullFile = getImportedVocabFile();
+		InputStream is = null;
 		BufferedReader br = null;
 		Tool tool = g.tool;
 		String vocabName = g.getOptionString("tokenVocab");
 		try {
+			tool.log("grammar", "tokenVocab=" + fullFile);
 			Pattern tokenDefPattern = Pattern.compile("([^\n]+?)[ \\t]*?=[ \\t]*?([0-9]+)");
-			fis = new FileInputStream(fullFile);
+			is = fullFile.openStream();
 			InputStreamReader isr;
 			if (tool.grammarEncoding != null) {
-				isr = new InputStreamReader(fis, tool.grammarEncoding);
+				isr = new InputStreamReader(is, tool.grammarEncoding);
 			}
 			else {
-				isr = new InputStreamReader(fis);
+				isr = new InputStreamReader(is);
 			}
 
 			br = new BufferedReader(isr);
@@ -131,21 +134,27 @@ public class TokenVocabParser {
 	 *  directory, which means the current directory for the command line tool if there
 	 *  was no output directory specified.
 	 */
-	public File getImportedVocabFile() {
+	public URL getImportedVocabFile() {
 		String vocabName = g.getOptionString("tokenVocab");
 		File f = new File(g.tool.libDirectory,
 						  File.separator +
 						  vocabName +
 						  CodeGenerator.VOCAB_FILE_EXTENSION);
 		if (f.exists()) {
-			return f;
+			return Utils.urlFromFile(f);
 		}
+
+		// try to find tokenVocab as resource in the classpath
+		// (actually the thread context classloader)
+		URL u = Thread.currentThread().getContextClassLoader().getResource(vocabName + CodeGenerator.VOCAB_FILE_EXTENSION);
+		if (u != null)
+			return u;
 
 		// We did not find the vocab file in the lib directory, so we need
 		// to look for it in the output directory which is where .tokens
 		// files are generated (in the base, not relative to the input
 		// location.)
 		f = new File(g.tool.outputDirectory, vocabName + CodeGenerator.VOCAB_FILE_EXTENSION);
-		return f;
+		return Utils.urlFromFile(f);
 	}
 }

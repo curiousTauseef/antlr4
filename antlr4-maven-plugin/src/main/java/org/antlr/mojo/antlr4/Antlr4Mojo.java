@@ -36,6 +36,8 @@ import java.io.OutputStreamWriter;
 import java.io.StringWriter;
 import java.io.Writer;
 import java.net.URI;
+import java.net.URL;
+import java.net.URLClassLoader;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -181,6 +183,12 @@ public class Antlr4Mojo extends AbstractMojo {
     @Parameter(defaultValue = "${project.build.directory}/maven-status/antlr4", readonly=true)
     private File statusDirectory;
 
+	/**
+	 * Compile-time dependencies are used to search for tokenVocab tokens files.
+	 */
+	@Parameter(property = "project.compileClasspathElements", required = true, readonly = true)
+	private List<String> classpath;
+
 	@Component
 	private BuildContext buildContext;
 
@@ -237,7 +245,19 @@ public class Antlr4Mojo extends AbstractMojo {
 
             log.debug("ANTLR: Output: " + outputDirectory);
             log.debug("ANTLR: Library: " + libDirectory);
+
+            for (String e : classpath) {
+                log.debug("ANTLR: Classpath: " + e);
+            }
         }
+
+        List<URL> urls = new ArrayList<>(classpath.size());
+		for (String element : classpath)
+			urls.add(org.antlr.v4.misc.Utils.urlFromFile(new File(element)));
+
+		// set new classloader
+		ClassLoader classloader = new URLClassLoader(urls.toArray(new URL[urls.size()]), Thread.currentThread().getContextClassLoader());
+		Thread.currentThread().setContextClassLoader(classloader);
 
 		if (!sourceDirectory.isDirectory()) {
 			log.info("No ANTLR 4 grammars to compile in " + sourceDirectory.getAbsolutePath());

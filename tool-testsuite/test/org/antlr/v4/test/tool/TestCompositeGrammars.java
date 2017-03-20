@@ -6,6 +6,7 @@
 
 package org.antlr.v4.test.tool;
 
+import org.antlr.v4.misc.Utils;
 import org.antlr.v4.test.runtime.BaseRuntimeTest;
 import org.antlr.v4.test.runtime.ErrorQueue;
 import org.antlr.v4.tool.ANTLRMessage;
@@ -16,6 +17,8 @@ import org.junit.Before;
 import org.junit.Test;
 
 import java.io.File;
+import java.net.URL;
+import java.net.URLClassLoader;
 
 import static org.antlr.v4.test.runtime.BaseRuntimeTest.writeFile;
 import static org.junit.Assert.assertEquals;
@@ -188,6 +191,37 @@ public class TestCompositeGrammars extends BaseJavaToolTest {
 		ErrorQueue equeue = BaseRuntimeTest.antlrOnString(tmpdir, "Java", "MLexer.g4", false, "-o", outdir);
 		assertEquals(0, equeue.size());
 		equeue = BaseRuntimeTest.antlrOnString(tmpdir, "Java", "MParser.g4", false, "-o", outdir, "-lib", subdir);
+		assertEquals(0, equeue.size());
+	}
+
+	@Test public void testTokensFileInClasspath() throws Exception {
+		BaseRuntimeTest.mkdir(tmpdir);
+
+		String parser =
+			"parser grammar M;\n" +
+			"options {tokenVocab=L;}\n" +
+			"s : a ;\n" +
+			"a : B {System.out.println(\"S.a\");} ;\n";
+		writeFile(tmpdir, "M.g4", parser);
+		String lexer =
+			"lexer grammar L;\n" +
+			"B : 'b' ;" + // defines B from inherited token space
+			"WS : (' '|'\\n') -> skip ;\n" ;
+		writeFile(tmpdir, "L.g4", lexer);
+
+		String outlexerdir = tmpdir + "/lexer";
+		BaseRuntimeTest.mkdir(outlexerdir);
+		String outparserdir = tmpdir + "/parser";
+		BaseRuntimeTest.mkdir(outparserdir);
+
+		ErrorQueue equeue = BaseRuntimeTest.antlrOnString(tmpdir, "Java", "L.g4", false, "-o", outlexerdir);
+		assertEquals(0, equeue.size());
+
+		// new classloader pointing to lexer output directory
+		URLClassLoader classloader = new URLClassLoader(new URL[] {Utils.urlFromFile(new File(outlexerdir))}, Thread.currentThread().getContextClassLoader());
+		Thread.currentThread().setContextClassLoader(classloader);
+
+		equeue = BaseRuntimeTest.antlrOnString(tmpdir, "Java", "M.g4", false, "-o", outparserdir);
 		assertEquals(0, equeue.size());
 	}
 
